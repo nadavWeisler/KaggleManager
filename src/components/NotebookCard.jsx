@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
-import path from 'path'
 
 export default function NotebookCard({ notebook }) {
   const { settings, appendLog } = useAppStore()
