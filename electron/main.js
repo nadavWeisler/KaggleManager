@@ -40,6 +40,16 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:set', (_, key, value) => store.set(key, value))
   ipcMain.handle('settings:getAll', () => store.store)
 
+  // File dialog: open a JSON file and return its text content
+  ipcMain.handle('dialog:openFile', async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (result.canceled) return null
+    return require('fs').readFileSync(result.filePaths[0], 'utf8')
+  })
+
   // File/directory picker
   ipcMain.handle('dialog:openDirectory', async () => {
     const result = await dialog.showOpenDialog(win, {

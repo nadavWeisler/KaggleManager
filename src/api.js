@@ -130,6 +130,12 @@ function writeKaggleCredentials(username, key) {
 
 // ── Dialog / shell (web stubs) ────────────────────────────────────────────────
 
+function openFile() {
+  if (isElectron()) return window.api.dialog.openFile()
+  // Web: caller handles via <input type="file">
+  return Promise.resolve(null)
+}
+
 function openDirectory() {
   if (isElectron()) return window.api.dialog.openDirectory()
   // Browser can't pick arbitrary directories; return null (caller handles gracefully)
@@ -159,7 +165,7 @@ function onLog(callback) {
 
 export const api = {
   settings: { getAll: getSettings, set: setSetting },
-  dialog: { openDirectory },
+  dialog: { openDirectory, openFile },
   kaggle: {
     list: listKernels,
     search: searchKernels,

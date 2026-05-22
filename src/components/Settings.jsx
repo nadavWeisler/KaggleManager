@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { api } from '../api'
 
@@ -44,6 +44,8 @@ function StepResult({ step }) {
 export default function Settings() {
   const { settings, updateSetting } = useAppStore()
   const [saved, setSaved] = useState(false)
+  const [importError, setImportError] = useState('')
+  const fileInputRef = useRef(null)
   const [form, setForm] = useState({
     workspaceDir: '',
     jupyterPath: 'jupyter',
@@ -94,6 +96,31 @@ export default function Settings() {
     if (dir) setForm((f) => ({ ...f, workspaceDir: dir }))
   }
 
+  function applyKaggleJson(text) {
+    try {
+      const { username, key } = JSON.parse(text)
+      if (!username || !key) throw new Error('Missing username or key')
+      setForm((f) => ({ ...f, kaggleUsername: username, kaggleKey: key }))
+      setImportError('')
+    } catch (e) {
+      setImportError(`Invalid kaggle.json: ${e.message}`)
+    }
+  }
+
+  async function handleImportElectron() {
+    const text = await api.dialog.openFile()
+    if (text) applyKaggleJson(text)
+  }
+
+  function handleImportWeb(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => applyKaggleJson(ev.target.result)
+    reader.readAsText(file)
+    e.target.value = '' // reset so same file can be re-selected
+  }
+
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-2xl font-bold text-slate-100 mb-6">Settings</h1>
@@ -121,6 +148,37 @@ export default function Settings() {
             <p className="text-xs text-slate-500">
               Get your API key from <span className="text-[#20BEFF]">kaggle.com → Profile → Account → API</span>. Alternatively, place <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.kaggle/kaggle.json</code> manually.
             </p>
+            {/* Import kaggle.json */}
+            <div className="flex items-center gap-3">
+              {isElectron() ? (
+                <button
+                  onClick={handleImportElectron}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                >
+                  📂 Load kaggle.json
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                  >
+                    📂 Load kaggle.json
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={handleImportWeb}
+                  />
+                </>
+              )}
+              <span className="text-xs text-slate-500">Parse and fill username + key from file</span>
+            </div>
+            {importError && (
+              <p className="text-xs text-red-400">{importError}</p>
+            )}
           </div>
         </div>
 

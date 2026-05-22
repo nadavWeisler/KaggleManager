@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   // Dialog
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+    openFile: () => ipcRenderer.invoke('dialog:openFile'),
   },
 
   // Kaggle
