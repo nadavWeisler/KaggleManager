@@ -80,6 +80,18 @@ app.post('/api/settings', (req, res) => {
   res.json({ ok: true })
 })
 
+// ── Kaggle: write credentials ─────────────────────────────────────────────────
+
+app.post('/api/kaggle/credentials', async (req, res) => {
+  const { username, key } = req.body
+  try {
+    const result = await kaggle.writeKaggleCredentials(username, key)
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 // ── Kaggle: test connection ───────────────────────────────────────────────────
 
 app.get('/api/kaggle/test', (req, res) => {

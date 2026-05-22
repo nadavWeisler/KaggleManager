@@ -126,6 +126,11 @@ app.whenReady().then(() => {
     )
   })
 
+  // Kaggle: write credentials to ~/.config/kaggle/kaggle.json
+  ipcMain.handle('kaggle:write-credentials', async (_, username, key) => {
+    return kaggle.writeKaggleCredentials(username, key)
+  })
+
   // Open in VS Code
   ipcMain.handle('vscode:open', async (_, filePath) => {
     shell.openExternal(`vscode://file/${filePath}`)

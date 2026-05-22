@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { api } from '../api'
 
+const isElectron = () => typeof window !== 'undefined' && !!window.api
+
 function Field({ label, children }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -65,6 +67,13 @@ export default function Settings() {
   async function handleSave() {
     for (const [key, value] of Object.entries(form)) {
       await updateSetting(key, value)
+    }
+    // Write kaggle.json if credentials are provided
+    if (form.kaggleUsername && form.kaggleKey) {
+      const result = await api.kaggle.writeCredentials(form.kaggleUsername, form.kaggleKey)
+      if (!result.ok) {
+        console.error('Failed to write kaggle.json:', result.error)
+      }
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -132,7 +141,9 @@ export default function Settings() {
                 />
                 <button
                   onClick={pickWorkspaceDir}
-                  className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                  title={isElectron() ? 'Browse for directory' : 'Directory picker is only available in Electron mode — type path manually'}
+                  disabled={!isElectron()}
+                  className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm transition-colors"
                 >
                   Browse
                 </button>

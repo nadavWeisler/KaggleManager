@@ -194,6 +194,31 @@ async function testConnection(onLog, kaggleBin = 'kaggle') {
   return { ok: true, steps }
 }
 
+/**
+ * Write Kaggle API credentials to ~/.config/kaggle/kaggle.json (and legacy ~/.kaggle/kaggle.json).
+ * Returns { ok, path }
+ */
+async function writeKaggleCredentials(username, key) {
+  if (!username || !key) return { ok: false, error: 'Username and key are required' }
+
+  const content = JSON.stringify({ username, key }, null, 2)
+  const written = []
+
+  // Primary: ~/.config/kaggle/kaggle.json
+  const configDir = path.join(os.homedir(), '.config', 'kaggle')
+  fs.mkdirSync(configDir, { recursive: true })
+  fs.writeFileSync(path.join(configDir, 'kaggle.json'), content, { mode: 0o600 })
+  written.push(path.join(configDir, 'kaggle.json'))
+
+  // Legacy: ~/.kaggle/kaggle.json
+  const legacyDir = path.join(os.homedir(), '.kaggle')
+  fs.mkdirSync(legacyDir, { recursive: true })
+  fs.writeFileSync(path.join(legacyDir, 'kaggle.json'), content, { mode: 0o600 })
+  written.push(path.join(legacyDir, 'kaggle.json'))
+
+  return { ok: true, paths: written }
+}
+
 module.exports = {
   listKernels,
   pullKernel,
@@ -202,4 +227,5 @@ module.exports = {
   downloadDataset,
   launchJupyter,
   testConnection,
+  writeKaggleCredentials,
 }

@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { api } from '../api'
 
+const isElectron = () => typeof window !== 'undefined' && !!window.api
+
 export default function NotebookCard({ notebook }) {
   const { settings, appendLog } = useAppStore()
   const [pulling, setPulling] = useState(false)
   const [pushing, setPushing] = useState(false)
+  const [pulled, setPulled] = useState(false)
+  const [vsCodeMsg, setVSCodeMsg] = useState('')
 
   const slug = notebook.ref || notebook.title
   const workspace = settings.workspaceDir || `${window.process?.env?.HOME || '~'}/.kaggle-manager`
@@ -16,6 +20,7 @@ export default function NotebookCard({ notebook }) {
     appendLog(`Pulling ${slug}...`)
     const result = await api.kaggle.pull(slug, notebookDir, appendLog)
     if (result.error) appendLog(`✗ ${result.error}`)
+    else setPulled(true)
     setPulling(false)
   }
 
@@ -34,6 +39,10 @@ export default function NotebookCard({ notebook }) {
 
   async function handleVSCode() {
     await api.vscode.open(notebookDir)
+    if (!isElectron()) {
+      setVSCodeMsg('Opening VS Code… (make sure the notebook is pulled first)')
+      setTimeout(() => setVSCodeMsg(''), 3000)
+    }
   }
 
   async function handleOpenFolder() {
@@ -110,6 +119,9 @@ export default function NotebookCard({ notebook }) {
           📁
         </button>
       </div>
+      {vsCodeMsg && (
+        <p className="text-xs text-sky-400 animate-pulse">{vsCodeMsg}</p>
+      )}
     </div>
   )
 }
