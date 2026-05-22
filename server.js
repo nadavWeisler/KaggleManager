@@ -80,6 +80,12 @@ app.post('/api/settings', (req, res) => {
   res.json({ ok: true })
 })
 
+// ── Kaggle: read credentials from disk ───────────────────────────────────────
+
+app.get('/api/kaggle/credentials', (req, res) => {
+  res.json(kaggle.readKaggleCredentials() || {})
+})
+
 // ── Kaggle: write credentials ─────────────────────────────────────────────────
 
 app.post('/api/kaggle/credentials', async (req, res) => {

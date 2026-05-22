@@ -119,6 +119,11 @@ function downloadDataset(slug, destPath, onLog) {
   return streamRequest('/api/kaggle/datasets/download', { method: 'POST', body: { slug, destPath } }, onLog)
 }
 
+function readKaggleCredentials() {
+  if (isElectron()) return window.api.kaggle.readCredentials()
+  return fetch('/api/kaggle/credentials').then((r) => r.json())
+}
+
 function writeKaggleCredentials(username, key) {
   if (isElectron()) return window.api.kaggle.writeCredentials(username, key)
   return fetch('/api/kaggle/credentials', {
@@ -175,6 +180,7 @@ export const api = {
     datasets: listDatasets,
     downloadDataset,
     writeCredentials: writeKaggleCredentials,
+    readCredentials: readKaggleCredentials,
   },
   jupyter: { launch: launchJupyter },
   vscode: { open: openVSCode },

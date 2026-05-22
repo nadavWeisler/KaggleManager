@@ -136,6 +136,11 @@ app.whenReady().then(() => {
     )
   })
 
+  // Kaggle: read existing credentials from disk
+  ipcMain.handle('kaggle:read-credentials', async () => {
+    return kaggle.readKaggleCredentials()
+  })
+
   // Kaggle: write credentials to ~/.config/kaggle/kaggle.json
   ipcMain.handle('kaggle:write-credentials', async (_, username, key) => {
     return kaggle.writeKaggleCredentials(username, key)

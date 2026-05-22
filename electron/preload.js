@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('kaggle:download-dataset', slug, destPath),
     writeCredentials: (username, key) =>
       ipcRenderer.invoke('kaggle:write-credentials', username, key),
+    readCredentials: () => ipcRenderer.invoke('kaggle:read-credentials'),
   },
 
   // Jupyter

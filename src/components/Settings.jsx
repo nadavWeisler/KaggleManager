@@ -57,13 +57,17 @@ export default function Settings() {
   const [testResult, setTestResult] = useState(null) // { ok, steps }
 
   useEffect(() => {
-    setForm({
-      workspaceDir: settings.workspaceDir || '',
-      jupyterPath: settings.jupyterPath || 'jupyter',
-      kagglePath: settings.kagglePath || 'kaggle',
-      kaggleUsername: settings.kaggleUsername || '',
-      kaggleKey: settings.kaggleKey || '',
-    })
+    async function init() {
+      const diskCreds = await api.kaggle.readCredentials().catch(() => null)
+      setForm({
+        workspaceDir: settings.workspaceDir || '',
+        jupyterPath: settings.jupyterPath || 'jupyter',
+        kagglePath: settings.kagglePath || 'kaggle',
+        kaggleUsername: settings.kaggleUsername || diskCreds?.username || '',
+        kaggleKey: settings.kaggleKey || diskCreds?.key || '',
+      })
+    }
+    init()
   }, [settings])
 
   async function handleSave() {
