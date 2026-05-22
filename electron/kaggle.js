@@ -152,6 +152,48 @@ function parseCSV(output) {
   return { items }
 }
 
+/**
+ * Test connection: checks binary exists and API credentials work.
+ * Returns { ok, steps: [{label, ok, detail}] }
+ */
+async function testConnection(onLog, kaggleBin = 'kaggle') {
+  const steps = []
+
+  // Step 1: check binary exists + version
+  try {
+    const result = await runCommand(kaggleBin, ['--version'], undefined, onLog)
+    const version = result.output.trim()
+    steps.push({ label: 'Kaggle CLI found', ok: true, detail: version })
+  } catch (err) {
+    steps.push({ label: 'Kaggle CLI found', ok: false, detail: `Binary not found: ${err.message}` })
+    return { ok: false, steps }
+  }
+
+  // Step 2: validate API credentials (list 1 notebook from mine)
+  try {
+    const result = await runCommand(
+      kaggleBin,
+      ['kernels', 'list', '--csv', '--page=1', '--page-size=1', '--mine'],
+      undefined,
+      onLog
+    )
+    const lines = result.output.trim().split('\n').filter(Boolean)
+    if (lines.length >= 1) {
+      steps.push({ label: 'API credentials valid', ok: true, detail: 'Successfully connected to Kaggle API' })
+    } else {
+      steps.push({ label: 'API credentials valid', ok: true, detail: 'Connected (no notebooks found, but auth works)' })
+    }
+  } catch (err) {
+    const detail = err.message.includes('401') || err.message.toLowerCase().includes('unauthorized') || err.message.toLowerCase().includes('credential')
+      ? 'Invalid API credentials — check your kaggle.json or username/key in Settings'
+      : err.message
+    steps.push({ label: 'API credentials valid', ok: false, detail })
+    return { ok: false, steps }
+  }
+
+  return { ok: true, steps }
+}
+
 module.exports = {
   listKernels,
   pullKernel,
@@ -159,4 +201,5 @@ module.exports = {
   listDatasets,
   downloadDataset,
   launchJupyter,
+  testConnection,
 }
