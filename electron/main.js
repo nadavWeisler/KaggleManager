@@ -48,6 +48,15 @@ app.whenReady().then(() => {
     return result.canceled ? null : result.filePaths[0]
   })
 
+  // Kaggle: test connection
+  ipcMain.handle('kaggle:test', async (event) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
+    return kaggle.testConnection(
+      (line) => event.sender.send('log:stream', line),
+      kaggleBin
+    )
+  })
+
   // Kaggle: list kernels
   ipcMain.handle('kaggle:list', async (event, opts = {}) => {
     const kaggleBin = store.get('kagglePath', 'kaggle')

@@ -22,6 +22,22 @@ function Input({ value, onChange, placeholder, type = 'text' }) {
   )
 }
 
+function StepResult({ step }) {
+  return (
+    <div className={`flex items-start gap-2 text-sm py-1`}>
+      <span className="mt-0.5 shrink-0">
+        {step.ok ? '✅' : '❌'}
+      </span>
+      <div>
+        <span className={step.ok ? 'text-green-300' : 'text-red-300'}>{step.label}</span>
+        {step.detail && (
+          <p className="text-xs text-slate-400 mt-0.5">{step.detail}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { settings, updateSetting } = useAppStore()
   const [saved, setSaved] = useState(false)
@@ -32,6 +48,8 @@ export default function Settings() {
     kaggleUsername: '',
     kaggleKey: '',
   })
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null) // { ok, steps }
 
   useEffect(() => {
     setForm({
@@ -49,6 +67,17 @@ export default function Settings() {
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+  }
+
+  async function handleTest() {
+    if (!window.api) return
+    // Save kagglePath first so the test uses the current field value
+    await updateSetting('kagglePath', form.kagglePath)
+    setTesting(true)
+    setTestResult(null)
+    const result = await window.api.kaggle.test()
+    setTestResult(result)
+    setTesting(false)
   }
 
   async function pickWorkspaceDir() {
@@ -131,20 +160,58 @@ export default function Settings() {
 
         <div className="border-t border-slate-700" />
 
-        {/* Kaggle CLI path */}
+        {/* Kaggle CLI path + Test */}
         <div>
           <h2 className="text-base font-semibold text-slate-200 mb-4">Kaggle CLI</h2>
-          <Field label="Kaggle Executable Path">
-            <Input
-              value={form.kagglePath}
-              onChange={(v) => setForm((f) => ({ ...f, kagglePath: v }))}
-              placeholder="kaggle"
-            />
-            <p className="text-xs text-slate-500">
-              Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle</code>. If you see "ENOENT" errors, set the full path — usually{' '}
-              <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.local/bin/kaggle</code> or <code className="text-slate-300 bg-slate-700 px-1 rounded">/usr/local/bin/kaggle</code>.
-            </p>
-          </Field>
+          <div className="flex flex-col gap-4">
+            <Field label="Kaggle Executable Path">
+              <div className="flex gap-2">
+                <Input
+                  value={form.kagglePath}
+                  onChange={(v) => setForm((f) => ({ ...f, kagglePath: v }))}
+                  placeholder="kaggle"
+                />
+                <button
+                  onClick={handleTest}
+                  disabled={testing}
+                  className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {testing ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      Testing…
+                    </>
+                  ) : '⚡ Test Connection'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle</code>. If you see "ENOENT" errors, set the full path — usually{' '}
+                <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.local/bin/kaggle</code> or <code className="text-slate-300 bg-slate-700 px-1 rounded">/usr/local/bin/kaggle</code>.
+              </p>
+            </Field>
+
+            {/* Test result panel */}
+            {testResult && (
+              <div className={`rounded-xl border p-4 ${testResult.ok ? 'bg-green-950/40 border-green-700' : 'bg-red-950/40 border-red-800'}`}>
+                <p className={`text-sm font-semibold mb-3 ${testResult.ok ? 'text-green-300' : 'text-red-300'}`}>
+                  {testResult.ok ? '✅ All checks passed' : '❌ Connection check failed'}
+                </p>
+                <div className="flex flex-col gap-1">
+                  {testResult.steps.map((step, i) => (
+                    <StepResult key={i} step={step} />
+                  ))}
+                </div>
+                {!testResult.ok && (
+                  <p className="text-xs text-slate-400 mt-3 border-t border-slate-700 pt-3">
+                    💡 Make sure <code className="bg-slate-700 px-1 rounded">~/.kaggle/kaggle.json</code> exists with your credentials, or fill in Username + API Key above and save.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <button
