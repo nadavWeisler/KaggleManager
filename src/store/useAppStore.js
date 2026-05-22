@@ -28,6 +28,20 @@ export const useAppStore = create((set, get) => ({
     set({ notebooks: result?.items || [], notebooksLoading: false })
   },
 
+  // Notebook search
+  notebookTab: 'mine',            // 'mine' | 'search'
+  setNotebookTab: (tab) => set({ notebookTab: tab }),
+  notebookQuery: '',
+  setNotebookQuery: (q) => set({ notebookQuery: q }),
+  notebookSearchResults: [],
+  notebookSearchLoading: false,
+  searchNotebooks: async (query) => {
+    if (!window.api) return
+    set({ notebookSearchLoading: true, notebookQuery: query })
+    const result = await window.api.kaggle.search(query)
+    set({ notebookSearchResults: result?.items || [], notebookSearchLoading: false })
+  },
+
   // Datasets
   datasets: [],
   datasetsLoading: false,

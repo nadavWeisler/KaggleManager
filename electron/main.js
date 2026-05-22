@@ -50,43 +50,61 @@ app.whenReady().then(() => {
 
   // Kaggle: list kernels
   ipcMain.handle('kaggle:list', async (event, opts = {}) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
     return kaggle.listKernels(
       (line) => event.sender.send('log:stream', line),
-      opts
+      { ...opts, kaggleBin }
+    )
+  })
+
+  // Kaggle: search public kernels
+  ipcMain.handle('kaggle:search', async (event, query = '', page = 1) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
+    return kaggle.listKernels(
+      (line) => event.sender.send('log:stream', line),
+      { mine: false, search: query, page, kaggleBin }
     )
   })
 
   // Kaggle: pull kernel
   ipcMain.handle('kaggle:pull', async (event, slug, destPath) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
     return kaggle.pullKernel(
       slug,
       destPath,
-      (line) => event.sender.send('log:stream', line)
+      (line) => event.sender.send('log:stream', line),
+      kaggleBin
     )
   })
 
   // Kaggle: push kernel
   ipcMain.handle('kaggle:push', async (event, kernelPath) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
     return kaggle.pushKernel(
       kernelPath,
-      (line) => event.sender.send('log:stream', line)
+      (line) => event.sender.send('log:stream', line),
+      kaggleBin
     )
   })
 
   // Kaggle: list datasets
   ipcMain.handle('kaggle:datasets', async (event, search = '') => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
     return kaggle.listDatasets(
       search,
-      (line) => event.sender.send('log:stream', line)
+      (line) => event.sender.send('log:stream', line),
+      kaggleBin
     )
   })
 
   // Kaggle: download dataset
   ipcMain.handle('kaggle:download-dataset', async (event, slug, destPath) => {
+    const kaggleBin = store.get('kagglePath', 'kaggle')
     return kaggle.downloadDataset(
       slug,
       destPath,
-      (line) => event.sender.send('log:stream', line)
+      (line) => event.sender.send('log:stream', line),
+      kaggleBin
     )
   })
 

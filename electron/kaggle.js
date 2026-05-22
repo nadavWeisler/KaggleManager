@@ -1,11 +1,32 @@
 const { spawn, exec } = require('child_process')
 const path = require('path')
 const fs = require('fs')
+const os = require('os')
+
+// Electron strips the user shell PATH. Augment it with common locations
+// where pip/conda/pyenv install CLI tools.
+const EXTRA_PATHS = [
+  path.join(os.homedir(), '.local', 'bin'),
+  path.join(os.homedir(), '.local', 'bin'),
+  '/usr/local/bin',
+  '/usr/bin',
+  '/bin',
+  // conda / pyenv common locations
+  path.join(os.homedir(), 'anaconda3', 'bin'),
+  path.join(os.homedir(), 'miniconda3', 'bin'),
+  path.join(os.homedir(), '.pyenv', 'shims'),
+]
+
+function buildEnv() {
+  const existing = (process.env.PATH || '').split(path.delimiter)
+  const merged = [...new Set([...EXTRA_PATHS, ...existing])].join(path.delimiter)
+  return { ...process.env, PATH: merged }
+}
 
 function runCommand(cmd, args, cwd, onLog) {
   return new Promise((resolve, reject) => {
     onLog?.(`▶ ${cmd} ${args.join(' ')}`)
-    const proc = spawn(cmd, args, { cwd, env: process.env })
+    const proc = spawn(cmd, args, { cwd, env: buildEnv(), shell: false })
     const output = []
 
     proc.stdout.on('data', (d) => {
@@ -36,11 +57,12 @@ function runCommand(cmd, args, cwd, onLog) {
   })
 }
 
-async function listKernels(onLog, { mine = true, page = 1 } = {}) {
+async function listKernels(onLog, { mine = true, page = 1, search = '', kaggleBin = 'kaggle' } = {}) {
   try {
     const args = ['kernels', 'list', '--csv', `--page=${page}`]
-    if (mine) args.push('--mine')
-    const result = await runCommand('kaggle', args, undefined, onLog)
+    if (mine && !search) args.push('--mine')
+    if (search) args.push('--search', search)
+    const result = await runCommand(kaggleBin, args, undefined, onLog)
     return parseCSV(result.output)
   } catch (err) {
     onLog?.(`✗ Error listing kernels: ${err.message}`)
@@ -48,10 +70,10 @@ async function listKernels(onLog, { mine = true, page = 1 } = {}) {
   }
 }
 
-async function pullKernel(slug, destPath, onLog) {
+async function pullKernel(slug, destPath, onLog, kaggleBin = 'kaggle') {
   try {
     fs.mkdirSync(destPath, { recursive: true })
-    await runCommand('kaggle', ['kernels', 'pull', slug, '-p', destPath, '-m'], undefined, onLog)
+    await runCommand(kaggleBin, ['kernels', 'pull', slug, '-p', destPath, '-m'], undefined, onLog)
     onLog?.(`✓ Pulled ${slug} → ${destPath}`)
     return { ok: true, path: destPath }
   } catch (err) {
@@ -60,9 +82,9 @@ async function pullKernel(slug, destPath, onLog) {
   }
 }
 
-async function pushKernel(kernelPath, onLog) {
+async function pushKernel(kernelPath, onLog, kaggleBin = 'kaggle') {
   try {
-    await runCommand('kaggle', ['kernels', 'push', '-p', kernelPath], undefined, onLog)
+    await runCommand(kaggleBin, ['kernels', 'push', '-p', kernelPath], undefined, onLog)
     onLog?.(`✓ Pushed kernel from ${kernelPath}`)
     return { ok: true }
   } catch (err) {
@@ -71,11 +93,11 @@ async function pushKernel(kernelPath, onLog) {
   }
 }
 
-async function listDatasets(search, onLog) {
+async function listDatasets(search, onLog, kaggleBin = 'kaggle') {
   try {
     const args = ['datasets', 'list', '--csv']
     if (search) args.push('--search', search)
-    const result = await runCommand('kaggle', args, undefined, onLog)
+    const result = await runCommand(kaggleBin, args, undefined, onLog)
     return parseCSV(result.output)
   } catch (err) {
     onLog?.(`✗ Error listing datasets: ${err.message}`)
@@ -83,11 +105,11 @@ async function listDatasets(search, onLog) {
   }
 }
 
-async function downloadDataset(slug, destPath, onLog) {
+async function downloadDataset(slug, destPath, onLog, kaggleBin = 'kaggle') {
   try {
     fs.mkdirSync(destPath, { recursive: true })
     await runCommand(
-      'kaggle',
+      kaggleBin,
       ['datasets', 'download', slug, '-p', destPath, '--unzip'],
       undefined,
       onLog

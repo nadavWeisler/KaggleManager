@@ -28,6 +28,7 @@ export default function Settings() {
   const [form, setForm] = useState({
     workspaceDir: '',
     jupyterPath: 'jupyter',
+    kagglePath: 'kaggle',
     kaggleUsername: '',
     kaggleKey: '',
   })
@@ -36,6 +37,7 @@ export default function Settings() {
     setForm({
       workspaceDir: settings.workspaceDir || '',
       jupyterPath: settings.jupyterPath || 'jupyter',
+      kagglePath: settings.kagglePath || 'kaggle',
       kaggleUsername: settings.kaggleUsername || '',
       kaggleKey: settings.kaggleKey || '',
     })
@@ -124,6 +126,24 @@ export default function Settings() {
               placeholder="jupyter"
             />
             <p className="text-xs text-slate-500">Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">jupyter</code>. Set full path if not in PATH (e.g. <code className="text-slate-300 bg-slate-700 px-1 rounded">/usr/local/bin/jupyter</code>).</p>
+          </Field>
+        </div>
+
+        <div className="border-t border-slate-700" />
+
+        {/* Kaggle CLI path */}
+        <div>
+          <h2 className="text-base font-semibold text-slate-200 mb-4">Kaggle CLI</h2>
+          <Field label="Kaggle Executable Path">
+            <Input
+              value={form.kagglePath}
+              onChange={(v) => setForm((f) => ({ ...f, kagglePath: v }))}
+              placeholder="kaggle"
+            />
+            <p className="text-xs text-slate-500">
+              Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle</code>. If you see "ENOENT" errors, set the full path — usually{' '}
+              <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.local/bin/kaggle</code> or <code className="text-slate-300 bg-slate-700 px-1 rounded">/usr/local/bin/kaggle</code>.
+            </p>
           </Field>
         </div>
 
