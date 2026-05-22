@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { api } from '../api'
 
 function Field({ label, children }) {
   return (
@@ -70,19 +71,17 @@ export default function Settings() {
   }
 
   async function handleTest() {
-    if (!window.api) return
     // Save kagglePath first so the test uses the current field value
     await updateSetting('kagglePath', form.kagglePath)
     setTesting(true)
     setTestResult(null)
-    const result = await window.api.kaggle.test()
+    const result = await api.kaggle.test()
     setTestResult(result)
     setTesting(false)
   }
 
   async function pickWorkspaceDir() {
-    if (!window.api) return
-    const dir = await window.api.dialog.openDirectory()
+    const dir = await api.dialog.openDirectory()
     if (dir) setForm((f) => ({ ...f, workspaceDir: dir }))
   }
 

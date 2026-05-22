@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { api } from '../api'
 
 export const useAppStore = create((set, get) => ({
   // Navigation
@@ -8,13 +9,11 @@ export const useAppStore = create((set, get) => ({
   // Settings
   settings: {},
   loadSettings: async () => {
-    if (!window.api) return
-    const s = await window.api.settings.getAll()
+    const s = await api.settings.getAll()
     set({ settings: s || {} })
   },
   updateSetting: async (key, value) => {
-    if (!window.api) return
-    await window.api.settings.set(key, value)
+    await api.settings.set(key, value)
     set((state) => ({ settings: { ...state.settings, [key]: value } }))
   },
 
@@ -22,9 +21,8 @@ export const useAppStore = create((set, get) => ({
   notebooks: [],
   notebooksLoading: false,
   loadNotebooks: async () => {
-    if (!window.api) return
     set({ notebooksLoading: true })
-    const result = await window.api.kaggle.list({ mine: true })
+    const result = await api.kaggle.list({ mine: true }, get().appendLog)
     set({ notebooks: result?.items || [], notebooksLoading: false })
   },
 
@@ -36,9 +34,8 @@ export const useAppStore = create((set, get) => ({
   notebookSearchResults: [],
   notebookSearchLoading: false,
   searchNotebooks: async (query) => {
-    if (!window.api) return
     set({ notebookSearchLoading: true, notebookQuery: query })
-    const result = await window.api.kaggle.search(query)
+    const result = await api.kaggle.search(query, 1, get().appendLog)
     set({ notebookSearchResults: result?.items || [], notebookSearchLoading: false })
   },
 
@@ -48,9 +45,8 @@ export const useAppStore = create((set, get) => ({
   datasetSearch: '',
   setDatasetSearch: (q) => set({ datasetSearch: q }),
   loadDatasets: async (search = '') => {
-    if (!window.api) return
     set({ datasetsLoading: true })
-    const result = await window.api.kaggle.datasets(search)
+    const result = await api.kaggle.datasets(search, get().appendLog)
     set({ datasets: result?.items || [], datasetsLoading: false })
   },
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { api } from '../api'
 
 export default function NotebookCard({ notebook }) {
   const { settings, appendLog } = useAppStore()
@@ -11,37 +12,32 @@ export default function NotebookCard({ notebook }) {
   const notebookDir = `${workspace}/notebooks/${slug.replace('/', '_')}`
 
   async function handlePull() {
-    if (!window.api) return
     setPulling(true)
     appendLog(`Pulling ${slug}...`)
-    const result = await window.api.kaggle.pull(slug, notebookDir)
+    const result = await api.kaggle.pull(slug, notebookDir, appendLog)
     if (result.error) appendLog(`✗ ${result.error}`)
     setPulling(false)
   }
 
   async function handlePush() {
-    if (!window.api) return
     setPushing(true)
     appendLog(`Pushing ${slug}...`)
-    const result = await window.api.kaggle.push(notebookDir)
+    const result = await api.kaggle.push(notebookDir, appendLog)
     if (result.error) appendLog(`✗ ${result.error}`)
     setPushing(false)
   }
 
   async function handleJupyter() {
-    if (!window.api) return
     appendLog(`Launching Jupyter for ${slug}...`)
-    await window.api.jupyter.launch(notebookDir)
+    await api.jupyter.launch(notebookDir)
   }
 
   async function handleVSCode() {
-    if (!window.api) return
-    await window.api.vscode.open(notebookDir)
+    await api.vscode.open(notebookDir)
   }
 
   async function handleOpenFolder() {
-    if (!window.api) return
-    await window.api.shell.openPath(notebookDir)
+    await api.shell.openPath(notebookDir)
   }
 
   const title = notebook.title || slug

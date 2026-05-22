@@ -5,6 +5,7 @@ import DatasetList from './components/DatasetList'
 import Settings from './components/Settings'
 import LogDrawer from './components/LogDrawer'
 import { useAppStore } from './store/useAppStore'
+import { api } from './api'
 
 export default function App() {
   const { activeTab, loadSettings, appendLog, logDrawerOpen } = useAppStore()
@@ -12,11 +13,9 @@ export default function App() {
   useEffect(() => {
     loadSettings()
 
-    // Register global log stream listener
-    if (window.api?.onLog) {
-      const cleanup = window.api.onLog((line) => appendLog(line))
-      return cleanup
-    }
+    // Register global log stream listener (Electron only; web mode streams per-request)
+    const cleanup = api.onLog((line) => appendLog(line))
+    return cleanup
   }, [])
 
   return (
