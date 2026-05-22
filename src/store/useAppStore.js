@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import { api } from '../api'
 
+const LS_KEY = 'kaggle-manager:settings'
+
+function lsLoad() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
+}
+function lsSave(settings) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(settings)) } catch {}
+}
+
 export const useAppStore = create((set, get) => ({
   // Navigation
   activeTab: 'notebooks',
@@ -9,12 +18,23 @@ export const useAppStore = create((set, get) => ({
   // Settings
   settings: {},
   loadSettings: async () => {
-    const s = await api.settings.getAll()
-    set({ settings: s || {} })
+    // Merge: localStorage as fast fallback, server as source of truth
+    const local = lsLoad()
+    if (Object.keys(local).length) set({ settings: local })
+    try {
+      const server = await api.settings.getAll()
+      const merged = { ...local, ...server }
+      lsSave(merged)
+      set({ settings: merged })
+    } catch {
+      // server unavailable — keep localStorage values
+    }
   },
   updateSetting: async (key, value) => {
     await api.settings.set(key, value)
-    set((state) => ({ settings: { ...state.settings, [key]: value } }))
+    const updated = { ...get().settings, [key]: value }
+    lsSave(updated)
+    set({ settings: updated })
   },
 
   // Notebooks
