@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
   // Kaggle
   kaggle: {
     list: (opts) => ipcRenderer.invoke('kaggle:list', opts),
+    search: (query, page = 1) => ipcRenderer.invoke('kaggle:search', query, page),
     pull: (slug, destPath) => ipcRenderer.invoke('kaggle:pull', slug, destPath),
     push: (kernelPath) => ipcRenderer.invoke('kaggle:push', kernelPath),
     datasets: (search) => ipcRenderer.invoke('kaggle:datasets', search),

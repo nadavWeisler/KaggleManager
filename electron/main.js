@@ -56,6 +56,14 @@ app.whenReady().then(() => {
     )
   })
 
+  // Kaggle: search public kernels
+  ipcMain.handle('kaggle:search', async (event, query = '', page = 1) => {
+    return kaggle.listKernels(
+      (line) => event.sender.send('log:stream', line),
+      { mine: false, search: query, page }
+    )
+  })
+
   // Kaggle: pull kernel
   ipcMain.handle('kaggle:pull', async (event, slug, destPath) => {
     return kaggle.pullKernel(

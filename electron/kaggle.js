@@ -36,10 +36,11 @@ function runCommand(cmd, args, cwd, onLog) {
   })
 }
 
-async function listKernels(onLog, { mine = true, page = 1 } = {}) {
+async function listKernels(onLog, { mine = true, page = 1, search = '' } = {}) {
   try {
     const args = ['kernels', 'list', '--csv', `--page=${page}`]
-    if (mine) args.push('--mine')
+    if (mine && !search) args.push('--mine')
+    if (search) args.push('--search', search)
     const result = await runCommand('kaggle', args, undefined, onLog)
     return parseCSV(result.output)
   } catch (err) {
