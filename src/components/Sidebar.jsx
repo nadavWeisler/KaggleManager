@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
 
 const tabs = [
@@ -32,8 +33,49 @@ const tabs = [
   },
 ]
 
+function UserAvatar({ username }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  const initials = username ? username.slice(0, 2).toUpperCase() : '?'
+  const avatarUrl = `https://www.kaggle.com/${username}/avatar`
+
+  if (!username) {
+    return (
+      <div
+        title="Not logged in — add credentials in Settings"
+        className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-500 text-xs font-bold border border-slate-600"
+      >
+        ?
+      </div>
+    )
+  }
+
+  return (
+    <a
+      href={`https://www.kaggle.com/${username}`}
+      target="_blank"
+      rel="noreferrer"
+      title={`@${username} — open Kaggle profile`}
+      className="block w-9 h-9 rounded-full overflow-hidden border-2 border-slate-700 hover:border-[#20BEFF] transition-colors"
+    >
+      {!imgFailed ? (
+        <img
+          src={avatarUrl}
+          alt={username}
+          className="w-full h-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div className="w-full h-full bg-[#20BEFF] flex items-center justify-center text-slate-900 text-xs font-bold">
+          {initials}
+        </div>
+      )}
+    </a>
+  )
+}
+
 export default function Sidebar() {
-  const { activeTab, setActiveTab, toggleLogDrawer, logDrawerOpen, logs } = useAppStore()
+  const { activeTab, setActiveTab, toggleLogDrawer, logDrawerOpen, logs, settings } = useAppStore()
+  const username = settings.kaggleUsername || ''
 
   return (
     <aside className="w-16 flex flex-col items-center bg-slate-950 border-r border-slate-800 py-4 gap-2">
@@ -57,23 +99,28 @@ export default function Sidebar() {
         </button>
       ))}
 
-      {/* Log drawer toggle at bottom */}
-      <div className="mt-auto relative">
-        <button
-          title="Logs"
-          onClick={toggleLogDrawer}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-            logDrawerOpen ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
-          }`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-          </svg>
-          {logs.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#20BEFF]" />
-          )}
-        </button>
+      {/* Bottom: logs + user avatar */}
+      <div className="mt-auto flex flex-col items-center gap-3">
+        <div className="relative">
+          <button
+            title="Logs"
+            onClick={toggleLogDrawer}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              logDrawerOpen ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+            {logs.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#20BEFF]" />
+            )}
+          </button>
+        </div>
+
+        <UserAvatar username={username} />
       </div>
     </aside>
   )
 }
+
