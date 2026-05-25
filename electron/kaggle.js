@@ -159,17 +159,32 @@ function parseCSV(output) {
 async function testConnection(onLog, kaggleBin = 'kaggle') {
   const steps = []
 
+  // Step 0: check kaggle.json exists
+  const kaggleJsonPaths = [
+    path.join(os.homedir(), '.kaggle', 'kaggle.json'),
+    path.join(os.homedir(), '.config', 'kaggle', 'kaggle.json'),
+  ]
+  const credFile = kaggleJsonPaths.find(p => fs.existsSync(p))
+  if (!credFile) {
+    steps.push({ label: 'Kaggle CLI found', ok: true, detail: '' })
+    steps.push({
+      label: 'API credentials valid',
+      ok: false,
+      detail: 'kaggle.json not found. Go to Settings → load your kaggle.json file or enter username + API key and click Save.',
+    })
+    return { ok: false, steps }
+  }
+
   // Step 1: check binary exists + version
   try {
     const result = await runCommand(kaggleBin, ['--version'], undefined, onLog)
-    const version = result.output.trim()
-    steps.push({ label: 'Kaggle CLI found', ok: true, detail: version })
+    steps.push({ label: 'Kaggle CLI found', ok: true, detail: result.output.trim() })
   } catch (err) {
     steps.push({ label: 'Kaggle CLI found', ok: false, detail: `Binary not found: ${err.message}` })
     return { ok: false, steps }
   }
 
-  // Step 2: validate API credentials (list 1 notebook from mine)
+  // Step 2: validate API credentials
   try {
     const result = await runCommand(
       kaggleBin,
@@ -178,20 +193,65 @@ async function testConnection(onLog, kaggleBin = 'kaggle') {
       onLog
     )
     const lines = result.output.trim().split('\n').filter(Boolean)
-    if (lines.length >= 1) {
-      steps.push({ label: 'API credentials valid', ok: true, detail: 'Successfully connected to Kaggle API' })
-    } else {
-      steps.push({ label: 'API credentials valid', ok: true, detail: 'Connected (no notebooks found, but auth works)' })
-    }
+    steps.push({
+      label: 'API credentials valid',
+      ok: true,
+      detail: lines.length >= 2 ? 'Successfully connected to Kaggle API' : 'Connected (no notebooks yet)',
+    })
   } catch (err) {
-    const detail = err.message.includes('401') || err.message.toLowerCase().includes('unauthorized') || err.message.toLowerCase().includes('credential')
-      ? 'Invalid API credentials — check your kaggle.json or username/key in Settings'
-      : err.message
+    const msg = err.message || ''
+    const detail = msg.includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('credential') || msg.toLowerCase().includes('forbidden')
+      ? 'Invalid API credentials — check your username / API key in Settings'
+      : msg.includes('Could not find') || msg.includes('kaggle.json')
+        ? 'kaggle.json not found. Load it via Settings → 📂 Load kaggle.json'
+        : msg.split('\n').filter(l => !l.startsWith('  File ') && !l.startsWith('    ')).slice(-3).join(' ').trim()
     steps.push({ label: 'API credentials valid', ok: false, detail })
     return { ok: false, steps }
   }
 
   return { ok: true, steps }
+}
+
+/**
+ * Write Kaggle API credentials to ~/.config/kaggle/kaggle.json (and legacy ~/.kaggle/kaggle.json).
+ * Returns { ok, path }
+ */
+async function writeKaggleCredentials(username, key) {
+  if (!username || !key) return { ok: false, error: 'Username and key are required' }
+
+  const content = JSON.stringify({ username, key }, null, 2)
+  const written = []
+
+  // Primary: ~/.config/kaggle/kaggle.json
+  const configDir = path.join(os.homedir(), '.config', 'kaggle')
+  fs.mkdirSync(configDir, { recursive: true })
+  fs.writeFileSync(path.join(configDir, 'kaggle.json'), content, { mode: 0o600 })
+  written.push(path.join(configDir, 'kaggle.json'))
+
+  // Legacy: ~/.kaggle/kaggle.json
+  const legacyDir = path.join(os.homedir(), '.kaggle')
+  fs.mkdirSync(legacyDir, { recursive: true })
+  fs.writeFileSync(path.join(legacyDir, 'kaggle.json'), content, { mode: 0o600 })
+  written.push(path.join(legacyDir, 'kaggle.json'))
+
+  return { ok: true, paths: written }
+}
+
+/**
+ * Read existing kaggle.json from disk (if present).
+ * Returns { username, key } or null.
+ */
+function readKaggleCredentials() {
+  const candidates = [
+    path.join(os.homedir(), '.kaggle', 'kaggle.json'),
+    path.join(os.homedir(), '.config', 'kaggle', 'kaggle.json'),
+  ]
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'))
+    } catch {}
+  }
+  return null
 }
 
 module.exports = {
@@ -202,4 +262,6 @@ module.exports = {
   downloadDataset,
   launchJupyter,
   testConnection,
+  writeKaggleCredentials,
+  readKaggleCredentials,
 }

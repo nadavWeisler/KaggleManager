@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { api } from '../api'
 
 export default function DatasetCard({ dataset }) {
   const { settings, appendLog } = useAppStore()
@@ -11,10 +12,9 @@ export default function DatasetCard({ dataset }) {
   const destPath = `${workspace}/datasets/${slug.replace('/', '_')}`
 
   async function handleDownload() {
-    if (!window.api) return
     setDownloading(true)
     appendLog(`Downloading dataset ${slug}...`)
-    const result = await window.api.kaggle.downloadDataset(slug, destPath)
+    const result = await api.kaggle.downloadDataset(slug, destPath, appendLog)
     if (result.error) {
       appendLog(`✗ ${result.error}`)
     } else {
@@ -25,8 +25,7 @@ export default function DatasetCard({ dataset }) {
   }
 
   async function handleOpenFolder() {
-    if (!window.api) return
-    await window.api.shell.openPath(destPath)
+    await api.shell.openPath(destPath)
   }
 
   const size = dataset.size || dataset.totalBytes || '—'

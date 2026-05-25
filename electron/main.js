@@ -40,6 +40,16 @@ app.whenReady().then(() => {
   ipcMain.handle('settings:set', (_, key, value) => store.set(key, value))
   ipcMain.handle('settings:getAll', () => store.store)
 
+  // File dialog: open a JSON file and return its text content
+  ipcMain.handle('dialog:openFile', async () => {
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+    if (result.canceled) return null
+    return require('fs').readFileSync(result.filePaths[0], 'utf8')
+  })
+
   // File/directory picker
   ipcMain.handle('dialog:openDirectory', async () => {
     const result = await dialog.showOpenDialog(win, {
@@ -124,6 +134,16 @@ app.whenReady().then(() => {
       store.get('jupyterPath', 'jupyter'),
       (line) => event.sender.send('log:stream', line)
     )
+  })
+
+  // Kaggle: read existing credentials from disk
+  ipcMain.handle('kaggle:read-credentials', async () => {
+    return kaggle.readKaggleCredentials()
+  })
+
+  // Kaggle: write credentials to ~/.config/kaggle/kaggle.json
+  ipcMain.handle('kaggle:write-credentials', async (_, username, key) => {
+    return kaggle.writeKaggleCredentials(username, key)
   })
 
   // Open in VS Code

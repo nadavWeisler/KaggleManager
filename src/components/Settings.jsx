@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { api } from '../api'
+
+const isElectron = () => typeof window !== 'undefined' && !!window.api
 
 function Field({ label, children }) {
   return (
@@ -41,6 +44,8 @@ function StepResult({ step }) {
 export default function Settings() {
   const { settings, updateSetting } = useAppStore()
   const [saved, setSaved] = useState(false)
+  const [importError, setImportError] = useState('')
+  const fileInputRef = useRef(null)
   const [form, setForm] = useState({
     workspaceDir: '',
     jupyterPath: 'jupyter',
@@ -52,38 +57,72 @@ export default function Settings() {
   const [testResult, setTestResult] = useState(null) // { ok, steps }
 
   useEffect(() => {
-    setForm({
-      workspaceDir: settings.workspaceDir || '',
-      jupyterPath: settings.jupyterPath || 'jupyter',
-      kagglePath: settings.kagglePath || 'kaggle',
-      kaggleUsername: settings.kaggleUsername || '',
-      kaggleKey: settings.kaggleKey || '',
-    })
+    async function init() {
+      const diskCreds = await api.kaggle.readCredentials().catch(() => null)
+      setForm({
+        workspaceDir: settings.workspaceDir || '',
+        jupyterPath: settings.jupyterPath || 'jupyter',
+        kagglePath: settings.kagglePath || 'kaggle',
+        kaggleUsername: settings.kaggleUsername || diskCreds?.username || '',
+        kaggleKey: settings.kaggleKey || diskCreds?.key || '',
+      })
+    }
+    init()
   }, [settings])
 
   async function handleSave() {
     for (const [key, value] of Object.entries(form)) {
       await updateSetting(key, value)
     }
+    // Write kaggle.json if credentials are provided
+    if (form.kaggleUsername && form.kaggleKey) {
+      const result = await api.kaggle.writeCredentials(form.kaggleUsername, form.kaggleKey)
+      if (!result.ok) {
+        console.error('Failed to write kaggle.json:', result.error)
+      }
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }
 
   async function handleTest() {
-    if (!window.api) return
     // Save kagglePath first so the test uses the current field value
     await updateSetting('kagglePath', form.kagglePath)
     setTesting(true)
     setTestResult(null)
-    const result = await window.api.kaggle.test()
+    const result = await api.kaggle.test()
     setTestResult(result)
     setTesting(false)
   }
 
   async function pickWorkspaceDir() {
-    if (!window.api) return
-    const dir = await window.api.dialog.openDirectory()
+    const dir = await api.dialog.openDirectory()
     if (dir) setForm((f) => ({ ...f, workspaceDir: dir }))
+  }
+
+  function applyKaggleJson(text) {
+    try {
+      const { username, key } = JSON.parse(text)
+      if (!username || !key) throw new Error('Missing username or key')
+      setForm((f) => ({ ...f, kaggleUsername: username, kaggleKey: key }))
+      setImportError('')
+    } catch (e) {
+      setImportError(`Invalid kaggle.json: ${e.message}`)
+    }
+  }
+
+  async function handleImportElectron() {
+    const text = await api.dialog.openFile()
+    if (text) applyKaggleJson(text)
+  }
+
+  function handleImportWeb(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => applyKaggleJson(ev.target.result)
+    reader.readAsText(file)
+    e.target.value = '' // reset so same file can be re-selected
   }
 
   return (
@@ -113,6 +152,37 @@ export default function Settings() {
             <p className="text-xs text-slate-500">
               Get your API key from <span className="text-[#20BEFF]">kaggle.com → Profile → Account → API</span>. Alternatively, place <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.kaggle/kaggle.json</code> manually.
             </p>
+            {/* Import kaggle.json */}
+            <div className="flex items-center gap-3">
+              {isElectron() ? (
+                <button
+                  onClick={handleImportElectron}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                >
+                  📂 Load kaggle.json
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                  >
+                    📂 Load kaggle.json
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={handleImportWeb}
+                  />
+                </>
+              )}
+              <span className="text-xs text-slate-500">Parse and fill username + key from file</span>
+            </div>
+            {importError && (
+              <p className="text-xs text-red-400">{importError}</p>
+            )}
           </div>
         </div>
 
@@ -133,7 +203,9 @@ export default function Settings() {
                 />
                 <button
                   onClick={pickWorkspaceDir}
-                  className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition-colors"
+                  title={isElectron() ? 'Browse for directory' : 'Directory picker is only available in Electron mode — type path manually'}
+                  disabled={!isElectron()}
+                  className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm transition-colors"
                 >
                   Browse
                 </button>

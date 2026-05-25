@@ -1,47 +1,52 @@
 import { useState } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { api } from '../api'
+
+const isElectron = () => typeof window !== 'undefined' && !!window.api
 
 export default function NotebookCard({ notebook }) {
   const { settings, appendLog } = useAppStore()
   const [pulling, setPulling] = useState(false)
   const [pushing, setPushing] = useState(false)
+  const [pulled, setPulled] = useState(false)
+  const [vsCodeMsg, setVSCodeMsg] = useState('')
 
   const slug = notebook.ref || notebook.title
   const workspace = settings.workspaceDir || `${window.process?.env?.HOME || '~'}/.kaggle-manager`
   const notebookDir = `${workspace}/notebooks/${slug.replace('/', '_')}`
 
   async function handlePull() {
-    if (!window.api) return
     setPulling(true)
     appendLog(`Pulling ${slug}...`)
-    const result = await window.api.kaggle.pull(slug, notebookDir)
+    const result = await api.kaggle.pull(slug, notebookDir, appendLog)
     if (result.error) appendLog(`✗ ${result.error}`)
+    else setPulled(true)
     setPulling(false)
   }
 
   async function handlePush() {
-    if (!window.api) return
     setPushing(true)
     appendLog(`Pushing ${slug}...`)
-    const result = await window.api.kaggle.push(notebookDir)
+    const result = await api.kaggle.push(notebookDir, appendLog)
     if (result.error) appendLog(`✗ ${result.error}`)
     setPushing(false)
   }
 
   async function handleJupyter() {
-    if (!window.api) return
     appendLog(`Launching Jupyter for ${slug}...`)
-    await window.api.jupyter.launch(notebookDir)
+    await api.jupyter.launch(notebookDir)
   }
 
   async function handleVSCode() {
-    if (!window.api) return
-    await window.api.vscode.open(notebookDir)
+    await api.vscode.open(notebookDir)
+    if (!isElectron()) {
+      setVSCodeMsg('Opening VS Code… (make sure the notebook is pulled first)')
+      setTimeout(() => setVSCodeMsg(''), 3000)
+    }
   }
 
   async function handleOpenFolder() {
-    if (!window.api) return
-    await window.api.shell.openPath(notebookDir)
+    await api.shell.openPath(notebookDir)
   }
 
   const title = notebook.title || slug
@@ -114,6 +119,9 @@ export default function NotebookCard({ notebook }) {
           📁
         </button>
       </div>
+      {vsCodeMsg && (
+        <p className="text-xs text-sky-400 animate-pulse">{vsCodeMsg}</p>
+      )}
     </div>
   )
 }

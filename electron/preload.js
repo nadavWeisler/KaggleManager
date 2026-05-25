@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   // Dialog
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+    openFile: () => ipcRenderer.invoke('dialog:openFile'),
   },
 
   // Kaggle
@@ -23,6 +24,9 @@ contextBridge.exposeInMainWorld('api', {
     datasets: (search) => ipcRenderer.invoke('kaggle:datasets', search),
     downloadDataset: (slug, destPath) =>
       ipcRenderer.invoke('kaggle:download-dataset', slug, destPath),
+    writeCredentials: (username, key) =>
+      ipcRenderer.invoke('kaggle:write-credentials', username, key),
+    readCredentials: () => ipcRenderer.invoke('kaggle:read-credentials'),
   },
 
   // Jupyter
