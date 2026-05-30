@@ -2,9 +2,91 @@ import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import NotebookCard from './NotebookCard'
 
+function SetupStep({ index, title, detail, ok }) {
+  return (
+    <div className="flex gap-3 text-left">
+      <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+        ok ? 'bg-green-500/20 text-green-300' : 'bg-slate-700 text-slate-300'
+      }`}>
+        {ok ? '✓' : index}
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-200">{title}</p>
+        <p className="mt-0.5 text-xs leading-5 text-slate-400">{detail}</p>
+      </div>
+    </div>
+  )
+}
+
+function KaggleSetupPanel({ error, settings, onOpenSettings, onRetry, loading }) {
+  const hasCredentials = !!(settings.kaggleUsername && settings.kaggleKey)
+  const hasWorkspace = !!settings.workspaceDir
+  const cliMissing = /cli.*not found|not recognized|enoent/i.test(error || '')
+
+  return (
+    <div className="mx-auto max-w-2xl rounded-xl border border-slate-700 bg-slate-800/70 p-6 text-left shadow-xl shadow-slate-950/20">
+      <div className="flex items-start gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#20BEFF]/15 text-[#20BEFF]">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 11c0-1.657 1.79-3 4-3s4 1.343 4 3-1.79 3-4 3-4-1.343-4-3Zm0 0v6m0-6c0-1.657-1.79-3-4-3s-4 1.343-4 3 1.79 3 4 3 4-1.343 4-3Zm-8 0v6c0 1.657 1.79 3 4 3s4-1.343 4-3m8-6v6c0 1.657-1.79 3-4 3s-4-1.343-4-3" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold text-slate-100">Connect Kaggle to load your notebooks</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            KaggleManager needs the Kaggle CLI plus your API token. Once those are connected, this page will refresh into your notebook list.
+          </p>
+          {error && (
+            <div className="mt-4 rounded-lg border border-red-800/70 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-4">
+        <SetupStep
+          index="1"
+          ok={!cliMissing}
+          title="Install the Kaggle CLI"
+          detail='Run "python -m pip install kaggle" once, then keep the Kaggle executable path as "kaggle" unless you installed it somewhere custom.'
+        />
+        <SetupStep
+          index="2"
+          ok={hasCredentials}
+          title="Load your kaggle.json token"
+          detail="Download it from Kaggle account settings, then load it in Settings or paste your username and API key."
+        />
+        <SetupStep
+          index="3"
+          ok={hasWorkspace}
+          title="Choose a local workspace"
+          detail="This is where pulled notebooks and downloaded datasets will live on your machine."
+        />
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button
+          onClick={onOpenSettings}
+          className="rounded-lg bg-[#20BEFF] px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-sky-400"
+        >
+          Open Connection Settings
+        </button>
+        <button
+          onClick={onRetry}
+          disabled={loading}
+          className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loading ? 'Checking...' : 'Check Again'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function NotebookList() {
   const {
-    notebooks, notebooksLoading, loadNotebooks, settings,
+    notebooks, notebooksLoading, notebooksError, loadNotebooks, settings, setActiveTab,
     notebookTab, setNotebookTab,
     notebookQuery, setNotebookQuery,
     notebookSearchResults, notebookSearchLoading, searchNotebooks,
@@ -131,11 +213,19 @@ export default function NotebookList() {
             </>
           ) : isSearchTab ? (
             <p>No notebooks found for "<span className="text-slate-400">{inputValue}</span>".</p>
-          ) : (
+          ) : !notebooksError ? (
             <>
-              <p>No notebooks found.</p>
-              <p className="text-xs mt-1">Make sure the Kaggle CLI is installed and you are authenticated.</p>
+              <p className="text-slate-300">Connected, but there are no notebooks in this Kaggle account yet.</p>
+              <p className="text-xs mt-1">Use Search Kaggle to pull a public notebook, or create one on Kaggle and refresh.</p>
             </>
+          ) : (
+            <KaggleSetupPanel
+              error={notebooksError}
+              settings={settings}
+              onOpenSettings={() => setActiveTab('settings')}
+              onRetry={loadNotebooks}
+              loading={notebooksLoading}
+            />
           )}
         </div>
       )}

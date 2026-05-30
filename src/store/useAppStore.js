@@ -40,10 +40,23 @@ export const useAppStore = create((set, get) => ({
   // Notebooks
   notebooks: [],
   notebooksLoading: false,
+  notebooksError: '',
+  connectionCheck: null,
+  connectionChecking: false,
   loadNotebooks: async () => {
-    set({ notebooksLoading: true })
+    set({ notebooksLoading: true, notebooksError: '' })
     const result = await api.kaggle.list({ mine: true }, get().appendLog)
-    set({ notebooks: result?.items || [], notebooksLoading: false })
+    set({
+      notebooks: result?.items || [],
+      notebooksError: result?.error || '',
+      notebooksLoading: false,
+    })
+  },
+  testKaggleConnection: async () => {
+    set({ connectionChecking: true })
+    const result = await api.kaggle.test(get().appendLog)
+    set({ connectionCheck: result, connectionChecking: false })
+    return result
   },
 
   // Notebook search
