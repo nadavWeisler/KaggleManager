@@ -29,12 +29,15 @@ function StepResult({ step }) {
   return (
     <div className={`flex items-start gap-2 text-sm py-1`}>
       <span className="mt-0.5 shrink-0">
-        {step.ok ? '✅' : '❌'}
+        {step.ok ? '✓' : '×'}
       </span>
       <div>
         <span className={step.ok ? 'text-green-300' : 'text-red-300'}>{step.label}</span>
         {step.detail && (
           <p className="text-xs text-slate-400 mt-0.5">{step.detail}</p>
+        )}
+        {step.action && !step.ok && (
+          <p className="text-xs text-sky-300 mt-1">{step.action}</p>
         )}
       </div>
     </div>
@@ -55,6 +58,7 @@ export default function Settings() {
   })
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null) // { ok, steps }
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     async function init() {
@@ -71,6 +75,7 @@ export default function Settings() {
   }, [settings])
 
   async function handleSave() {
+    setSaveError('')
     for (const [key, value] of Object.entries(form)) {
       await updateSetting(key, value)
     }
@@ -78,18 +83,28 @@ export default function Settings() {
     if (form.kaggleUsername && form.kaggleKey) {
       const result = await api.kaggle.writeCredentials(form.kaggleUsername, form.kaggleKey)
       if (!result.ok) {
-        console.error('Failed to write kaggle.json:', result.error)
+        const message = result.error || 'Failed to write kaggle.json'
+        setSaveError(message)
+        return { ok: false, error: message }
       }
     }
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+    return { ok: true }
   }
 
   async function handleTest() {
-    // Save kagglePath first so the test uses the current field value
-    await updateSetting('kagglePath', form.kagglePath)
     setTesting(true)
     setTestResult(null)
+    const savedResult = await handleSave()
+    if (!savedResult.ok) {
+      setTestResult({
+        ok: false,
+        steps: [{ label: 'Settings saved', ok: false, detail: savedResult.error }],
+      })
+      setTesting(false)
+      return
+    }
     const result = await api.kaggle.test()
     setTestResult(result)
     setTesting(false)
@@ -127,7 +142,10 @@ export default function Settings() {
 
   return (
     <div className="p-6 max-w-2xl">
-      <h1 className="text-2xl font-bold text-slate-100 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-slate-100 mb-2">Connection Settings</h1>
+      <p className="mb-6 text-sm leading-6 text-slate-400">
+        Add your Kaggle token, choose where local files should live, then run one connection check. The check saves these settings first.
+      </p>
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-6">
         {/* Kaggle API */}
@@ -150,7 +168,7 @@ export default function Settings() {
               />
             </Field>
             <p className="text-xs text-slate-500">
-              Get your API key from <span className="text-[#20BEFF]">kaggle.com → Profile → Account → API</span>. Alternatively, place <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.kaggle/kaggle.json</code> manually.
+              Get your API token from <span className="text-[#20BEFF]">kaggle.com → Settings → Account → API → Create New Token</span>. Loading the downloaded <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle.json</code> is the easiest path.
             </p>
             {/* Import kaggle.json */}
             <div className="flex items-center gap-3">
@@ -178,7 +196,7 @@ export default function Settings() {
                   />
                 </>
               )}
-              <span className="text-xs text-slate-500">Parse and fill username + key from file</span>
+              <span className="text-xs text-slate-500">Fills username + key from the downloaded token file</span>
             </div>
             {importError && (
               <p className="text-xs text-red-400">{importError}</p>
@@ -248,7 +266,7 @@ export default function Settings() {
                   disabled={testing}
                   className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                 >
-                  {testing ? (
+                {testing ? (
                     <>
                       <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -256,12 +274,11 @@ export default function Settings() {
                       </svg>
                       Testing…
                     </>
-                  ) : '⚡ Test Connection'}
+                  ) : 'Save & Test Connection'}
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle</code>. If you see "ENOENT" errors, set the full path — usually{' '}
-                <code className="text-slate-300 bg-slate-700 px-1 rounded">~/.local/bin/kaggle</code> or <code className="text-slate-300 bg-slate-700 px-1 rounded">/usr/local/bin/kaggle</code>.
+                Default: <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle</code>. If the check says the CLI is missing, install it with <code className="text-slate-300 bg-slate-700 px-1 rounded">python -m pip install kaggle</code>, then restart the app or set the full path to <code className="text-slate-300 bg-slate-700 px-1 rounded">kaggle.exe</code>.
               </p>
             </Field>
 
@@ -269,7 +286,7 @@ export default function Settings() {
             {testResult && (
               <div className={`rounded-xl border p-4 ${testResult.ok ? 'bg-green-950/40 border-green-700' : 'bg-red-950/40 border-red-800'}`}>
                 <p className={`text-sm font-semibold mb-3 ${testResult.ok ? 'text-green-300' : 'text-red-300'}`}>
-                  {testResult.ok ? '✅ All checks passed' : '❌ Connection check failed'}
+                  {testResult.ok ? 'Connection ready' : 'Connection check needs attention'}
                 </p>
                 <div className="flex flex-col gap-1">
                   {testResult.steps.map((step, i) => (
@@ -278,13 +295,17 @@ export default function Settings() {
                 </div>
                 {!testResult.ok && (
                   <p className="text-xs text-slate-400 mt-3 border-t border-slate-700 pt-3">
-                    💡 Make sure <code className="bg-slate-700 px-1 rounded">~/.kaggle/kaggle.json</code> exists with your credentials, or fill in Username + API Key above and save.
+                    The check above shows the first thing to fix. After that, click Save & Test Connection again.
                   </p>
                 )}
               </div>
             )}
           </div>
         </div>
+
+        {saveError && (
+          <p className="text-sm text-red-300">{saveError}</p>
+        )}
 
         <button
           onClick={handleSave}

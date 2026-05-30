@@ -5,9 +5,26 @@ const os = require('os')
 
 // Electron strips the user shell PATH. Augment it with common locations
 // where pip/conda/pyenv install CLI tools.
+function existingDirs(paths) {
+  return paths.filter((p) => {
+    try { return p && fs.existsSync(p) } catch { return false }
+  })
+}
+
+function pythonScriptDirs() {
+  const candidates = []
+  const roamingPython = path.join(os.homedir(), 'AppData', 'Roaming', 'Python')
+  try {
+    for (const versionDir of fs.readdirSync(roamingPython)) {
+      candidates.push(path.join(roamingPython, versionDir, 'Scripts'))
+    }
+  } catch {}
+  return candidates
+}
+
 const EXTRA_PATHS = [
   path.join(os.homedir(), '.local', 'bin'),
-  path.join(os.homedir(), '.local', 'bin'),
+  ...pythonScriptDirs(),
   '/usr/local/bin',
   '/usr/bin',
   '/bin',
@@ -19,8 +36,16 @@ const EXTRA_PATHS = [
 
 function buildEnv() {
   const existing = (process.env.PATH || '').split(path.delimiter)
-  const merged = [...new Set([...EXTRA_PATHS, ...existing])].join(path.delimiter)
+  const merged = [...new Set([...existingDirs(EXTRA_PATHS), ...existing])].join(path.delimiter)
   return { ...process.env, PATH: merged }
+}
+
+function friendlyCommandError(err, commandName = 'Kaggle CLI') {
+  const message = err?.message || String(err)
+  if (err?.code === 'ENOENT' || message.includes('ENOENT') || message.includes('not recognized')) {
+    return `${commandName} was not found. Install it with "python -m pip install kaggle", then leave the executable path as "kaggle" or set the full path to kaggle.exe.`
+  }
+  return message
 }
 
 function runCommand(cmd, args, cwd, onLog) {
@@ -65,8 +90,9 @@ async function listKernels(onLog, { mine = true, page = 1, search = '', kaggleBi
     const result = await runCommand(kaggleBin, args, undefined, onLog)
     return parseCSV(result.output)
   } catch (err) {
-    onLog?.(`✗ Error listing kernels: ${err.message}`)
-    return { error: err.message, items: [] }
+    const error = friendlyCommandError(err)
+    onLog?.(`✗ Error listing kernels: ${error}`)
+    return { error, items: [] }
   }
 }
 
@@ -159,32 +185,38 @@ function parseCSV(output) {
 async function testConnection(onLog, kaggleBin = 'kaggle') {
   const steps = []
 
-  // Step 0: check kaggle.json exists
+  // Step 1: check binary exists + version
+  try {
+    const result = await runCommand(kaggleBin, ['--version'], undefined, onLog)
+    steps.push({ label: 'Kaggle CLI installed', ok: true, detail: result.output.trim() })
+  } catch (err) {
+    steps.push({
+      label: 'Kaggle CLI installed',
+      ok: false,
+      detail: friendlyCommandError(err),
+      action: 'Install the Kaggle CLI, then click Test Connection again.',
+    })
+    return { ok: false, steps }
+  }
+
+  // Step 2: check kaggle.json exists
   const kaggleJsonPaths = [
     path.join(os.homedir(), '.kaggle', 'kaggle.json'),
     path.join(os.homedir(), '.config', 'kaggle', 'kaggle.json'),
   ]
   const credFile = kaggleJsonPaths.find(p => fs.existsSync(p))
   if (!credFile) {
-    steps.push({ label: 'Kaggle CLI found', ok: true, detail: '' })
     steps.push({
-      label: 'API credentials valid',
+      label: 'Kaggle API token saved',
       ok: false,
       detail: 'kaggle.json not found. Go to Settings → load your kaggle.json file or enter username + API key and click Save.',
+      action: 'Download kaggle.json from Kaggle Account settings and load it here.',
     })
     return { ok: false, steps }
   }
+  steps.push({ label: 'Kaggle API token saved', ok: true, detail: credFile })
 
-  // Step 1: check binary exists + version
-  try {
-    const result = await runCommand(kaggleBin, ['--version'], undefined, onLog)
-    steps.push({ label: 'Kaggle CLI found', ok: true, detail: result.output.trim() })
-  } catch (err) {
-    steps.push({ label: 'Kaggle CLI found', ok: false, detail: `Binary not found: ${err.message}` })
-    return { ok: false, steps }
-  }
-
-  // Step 2: validate API credentials
+  // Step 3: validate API credentials
   try {
     const result = await runCommand(
       kaggleBin,
@@ -205,7 +237,12 @@ async function testConnection(onLog, kaggleBin = 'kaggle') {
       : msg.includes('Could not find') || msg.includes('kaggle.json')
         ? 'kaggle.json not found. Load it via Settings → 📂 Load kaggle.json'
         : msg.split('\n').filter(l => !l.startsWith('  File ') && !l.startsWith('    ')).slice(-3).join(' ').trim()
-    steps.push({ label: 'API credentials valid', ok: false, detail })
+    steps.push({
+      label: 'API credentials valid',
+      ok: false,
+      detail,
+      action: 'Load a fresh kaggle.json token or re-enter your username and API key.',
+    })
     return { ok: false, steps }
   }
 
